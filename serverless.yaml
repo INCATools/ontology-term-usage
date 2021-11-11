@@ -1,0 +1,59 @@
+org: cmungall
+app: ontology-term-usage
+service: ontology-term-usage
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: us-east-1
+  stage: ${opt:stage, "dev"}
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer:
+      name: ontology-term-usage-layer
+      description: Ontology term usage layer
+      compatibleRuntimes:
+        - python3.8
+
+functions:
+  app:
+    package:
+      include:
+        - "main.py"
+      exclude:
+        - "requirements.txt"
+        - "package.json"
+        - "package-lock.json"
+        - ".serverless/**"
+        - ".virtualenv/**"
+        - "node_modules/**"
+
+    handler: main.handler
+    environment:
+      STAGE: ${self:provider.stage}
+    layers:
+      - { Ref: PythonRequirementsLambdaLayer }
+    events:
+      - http:
+          method: any
+          path: /{proxy+}
+      - http:
+          method: get
+          path: forward
+      - http:
+          method: put
+          path: forward
+      - http:
+          method: post
+          path: forward
+      - http:
+          method: head
+          path: forward

@@ -25,6 +25,31 @@ Demo:
 poetry run pytest -s
 ```
 
+## API
+
+To run the API locally:
+
+```bash
+make app
+```
+
+ * Docs: http://127.0.0.1:8000/docs
+ * Find usages: http://127.0.0.1:8000/usage/GO:0007588
+
+Deployment on AWS via serverless:
+
+Follow 
+
+https://adem.sh/blog/tutorial-fastapi-aws-lambda-serverless
+
+for serverless/lambda deployment
+
+Type
+
+```bash
+make deploy
+```
+
 ## Future plans
 
 It may be better to wrap this into a generic obolibrary python package

@@ -1,0 +1,8 @@
+{
+    "name": "ontology-term-usage",
+    "version": "1.0.0",
+    "author": "Chris Mungall",
+    "dependencies": {
+        "serverless-python-requirements": "^5.0.1"
+    }
+}
