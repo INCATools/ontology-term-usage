@@ -10,6 +10,15 @@ URISTR = str
 SERVICE = str
 CATEGORY = str
 
+class ServiceMetadata(BaseModel):
+    endpoint: str
+    query_template: str
+    category: CATEGORY = None
+    description: str = None
+
+class ServiceMetadataCollection(BaseModel):
+    services: Dict[SERVICE, ServiceMetadata]
+
 class TermUsage(BaseModel):
     """
     Info on how a term is used
@@ -73,27 +82,32 @@ config = {
         {
             'endpoint': 'http://sparql.hegroup.org/sparql',
             'query_template': ontobee_usage_query_template,
-            'category': 'OntologyTerm'
+            'category': 'OntologyTerm',
+            'description': 'Ontobee includes all of OBO. We query for existential restrictions'
         },
     'ubergraph':
         {
             'endpoint': 'https://stars-app.renci.org/ubergraph/sparql',
             'query_template': ubergraph_usage_query_template,
-            'category': 'OntologyTerm'
+            'category': 'OntologyTerm',
+            'description': 'Ubergraph includes a subset of OBO, but may include axioms not in Ontobee'
         },
     'uniprot':
         {
             'endpoint': 'https://sparql.uniprot.org/sparql',
             'query_template': uniprot_usage_query_template,
-            'category': 'Protein'
+            'category': 'Protein',
+            'description': 'Uniprot includes annotations for GO terms'
         },
     'gocam':
         {
             'endpoint': 'http://rdf.geneontology.org/sparql',
             'query_template': gocam_usage_query_template,
-            'category': 'Model'
+            'category': 'Model',
+            'description': 'GO-CAM includes models with instantiated GO terms'
         },
 }
+
 
 class OntologyClient(BaseModel):
     """
@@ -102,6 +116,9 @@ class OntologyClient(BaseModel):
 
     limit: int = 30
 
+    def get_services(self) -> ServiceMetadataCollection:
+        return ServiceMetadataCollection(services=config)
+
     def term_to_uri(self, term: TERM) -> URISTR:
         if ':/' in term:
             return term
@@ -109,14 +126,11 @@ class OntologyClient(BaseModel):
         return f'http://purl.obolibrary.org/obo/{prefix}_{local_id}'
 
     def _term_usage_query(self, term: TERM, service: str) -> List[TermUsage]:
-        info = config[service]
-        endpoint = info['endpoint']
-        template = info['query_template']
-        category = info['category']
+        info = ServiceMetadata(**config[service])
         limit = self.limit
         term_uri = self.term_to_uri(term)
-        sparql = SPARQLWrapper(endpoint)
-        q = template.format(term_uri=term_uri)
+        sparql = SPARQLWrapper(info.endpoint)
+        q = info.query_template.format(term_uri=term_uri)
         q = f'{q}\nLIMIT {limit}'
         logging.info(q)
         sparql.setQuery(q)
@@ -126,9 +140,9 @@ class OntologyClient(BaseModel):
         for result in results["results"]["bindings"]:
             d = {k: v['value'] for k, v in result.items()}
             u = TermUsage(**d)
-            u.endpoint = endpoint
-            u.category = category
-            logging.info(f'U={u}')
+            u.endpoint = info.endpoint
+            u.category = info.category
+            logging.debug(f'U={u}')
             usages.append(u)
         return usages
 

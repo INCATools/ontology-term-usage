@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 from mangum import Mangum
 
 
-from ontology_term_usage.term_usage import OntologyClient, ResultSet, TermUsage, TERM
+from ontology_term_usage.term_usage import OntologyClient, ResultSet, TermUsage, TERM, ServiceMetadataCollection
 
 stage = os.environ.get('STAGE', None)
 openapi_prefix = f"/{stage}" if stage else "/"
@@ -30,5 +30,9 @@ async def root():
 async def usage(term: TERM) -> ResultSet:
     rs = client.term_usage(term)
     return rs
+
+@app.get("/metadata", response_model=ServiceMetadataCollection)
+async def metadata() -> ServiceMetadataCollection:
+    return client.get_services()
 
 handler = Mangum(app)

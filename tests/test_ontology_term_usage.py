@@ -15,6 +15,11 @@ def _check(results: List[TermUsage]):
 def test_version():
     assert __version__ == '0.1.0'
 
+def test_service_metadata():
+    client = OntologyClient()
+    s = client.get_services()
+    print(s)
+
 def test_ontobee():
     client = OntologyClient()
     _check(client.term_usage_ontobee(TEST_TERM))
