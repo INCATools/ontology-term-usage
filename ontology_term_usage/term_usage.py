@@ -58,7 +58,8 @@ SELECT ?uri ?label ?predicate ?graph WHERE {{
   GRAPH ?graph {{
     ?uri ?predicate <{term_uri}> 
   }}
-  ?uri rdfs:label ?label 
+  ?uri rdfs:label ?label .
+  FILTER (?graph = <http://reasoner.renci.org/nonredundant>)
 }}
 """
 
