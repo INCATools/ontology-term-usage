@@ -9,10 +9,12 @@ TERM = str
 URISTR = str
 SERVICE = str
 CATEGORY = str
+QUERY_TYPE = str
 
 class ServiceMetadata(BaseModel):
     endpoint: str
     query_template: str
+    relation_query_templates: List[str] = []
     category: CATEGORY = None
     description: str = None
 
@@ -35,9 +37,13 @@ class TermUsage(BaseModel):
     graph: URISTR = None
     notes: str = None
     axiom_type: str = None
+    query_type: str = None
     endpoint: str = None
 
 class ResultSet(BaseModel):
+    """
+    Results of a term usage query, broken down by service
+    """
     term: URISTR = None
     limit: int = None
     usages: Dict[SERVICE, List[TermUsage]] = {}
@@ -78,11 +84,28 @@ SELECT ?uri ?graph WHERE {{
 }}
 """
 
+relation_triple_query_template = """
+SELECT ?uri ?graph WHERE {{
+  GRAPH ?graph {{
+    ?uri <{term_uri}> ?related_term 
+  }}
+}}
+"""
+
+relation_tbox_query_template = """
+SELECT ?uri ?graph WHERE {{
+  GRAPH ?graph {{
+    ?uri rdfs:subClassOf [owl:onProperty <{term_uri}> ; owl:someValuesFrom ?related_term] 
+  }}
+}}
+"""
+
 config = {
     'ontobee':
         {
             'endpoint': 'http://sparql.hegroup.org/sparql',
             'query_template': ontobee_usage_query_template,
+            'relation_query_templates': [relation_triple_query_template, relation_tbox_query_template],
             'category': 'OntologyTerm',
             'description': 'Ontobee includes all of OBO. We query for existential restrictions'
         },
@@ -90,6 +113,7 @@ config = {
         {
             'endpoint': 'https://stars-app.renci.org/ubergraph/sparql',
             'query_template': ubergraph_usage_query_template,
+            'relation_query_templates': [relation_triple_query_template],
             'category': 'OntologyTerm',
             'description': 'Ubergraph includes a subset of OBO, but may include axioms not in Ontobee'
         },
@@ -97,6 +121,7 @@ config = {
         {
             'endpoint': 'https://sparql.uniprot.org/sparql',
             'query_template': uniprot_usage_query_template,
+            'relation_query_templates': [relation_triple_query_template],
             'category': 'Protein',
             'description': 'Uniprot includes annotations for GO terms'
         },
@@ -104,6 +129,7 @@ config = {
         {
             'endpoint': 'http://rdf.geneontology.org/sparql',
             'query_template': gocam_usage_query_template,
+            'relation_query_templates': [relation_triple_query_template],
             'category': 'Model',
             'description': 'GO-CAM includes models with instantiated GO terms'
         },
@@ -126,40 +152,55 @@ class OntologyClient(BaseModel):
         [prefix, local_id] = term.split(':')
         return f'http://purl.obolibrary.org/obo/{prefix}_{local_id}'
 
-    def _term_usage_query(self, term: TERM, service: str) -> List[TermUsage]:
+    def _term_usage_query(self, term: TERM, service: str, limit: int = None) -> List[TermUsage]:
         info = ServiceMetadata(**config[service])
-        limit = self.limit
+
         term_uri = self.term_to_uri(term)
-        sparql = SPARQLWrapper(info.endpoint)
         q = info.query_template.format(term_uri=term_uri)
-        q = f'{q}\nLIMIT {limit}'
-        logging.info(q)
-        sparql.setQuery(q)
+        usages = self._sparql_query(q, info, limit=limit)
+        for qt in info.relation_query_templates:
+            q = qt.format(term_uri=term_uri)
+            usages += self._sparql_query(q, info, limit=limit, query_type='RELATION')
+        return usages
+
+
+    def _sparql_query(self, query: str, info: ServiceMetadata, limit: int = None, query_type: str = 'TERM'):
+        if limit is None:
+            limit = self.limit
+        sparql = SPARQLWrapper(info.endpoint)
+        query = f'{query}\nLIMIT {limit}'
+        logging.info(query)
+        sparql.setQuery(query)
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         usages = []
         for result in results["results"]["bindings"]:
+            # Mapping from a sparql result to an object
             d = {k: v['value'] for k, v in result.items()}
             u = TermUsage(**d)
             u.endpoint = info.endpoint
             u.category = info.category
+            u.query_type = query_type
             logging.debug(f'U={u}')
             usages.append(u)
         return usages
 
-    def term_usage(self, term: TERM, services: List[SERVICE] = None) -> ResultSet:
+    def term_usage(self, term: TERM, services: List[SERVICE] = None, limit: int = None) -> ResultSet:
         """
         iterate through all services querying for term usage
 
-        :param term:
+        :param term: URI or CURIE of the query term
         :param services: if None, queries all
+        :param limit: max number of results
         :return:
         """
-        rs = ResultSet(term=term, limit=self.limit)
+        if limit is None:
+            limit = self.limit
+        rs = ResultSet(term=term, limit=limit)
         if services == None:
             services = config.keys()
         for service in services:
-            rs.usages[service] = self._term_usage_query(term, service)
+            rs.usages[service] = self._term_usage_query(term, service, limit=limit)
         return rs
 
     def term_usage_ontobee(self, term: TERM) -> List[TermUsage]:

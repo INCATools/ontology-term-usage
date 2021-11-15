@@ -38,3 +38,22 @@ def test_all():
     print(f'RS={rs.term}')
     for s, usages in rs.usages.items():
         print(f'  {s}: {len(usages)}')
+
+def test_limit():
+    ontology_client = OntologyClient()
+    rs = ontology_client.term_usage(TEST_TERM, limit=2)
+    print(f'RS={rs.term}')
+    for s, usages in rs.usages.items():
+        print(f'  {s}: {len(usages)}')
+        assert len(usages) == 2
+
+def test_ro():
+    ontology_client = OntologyClient()
+    rs = ontology_client.term_usage('RO:0000057', limit=5)
+    print(f'RO RS={rs.term}')
+    for s, usages in rs.usages.items():
+        print(f'  {s}: {len(usages)}')
+        if usages != []:
+            print(f'  {usages[0]}')
+            assert len(usages) == 5
+            assert any(usage for usage in usages if usage.query_type == 'RELATION')
