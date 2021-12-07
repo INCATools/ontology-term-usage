@@ -74,5 +74,5 @@ make deploy
 
 ## Future plans
 
-It may be better to wrap this into a generic obolibrary python package
-=
+ - It may be better to wrap this into a generic obolibrary python package
+
