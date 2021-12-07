@@ -5,7 +5,11 @@ Python wrapper to different clients to determine how a particular term is used.
 One use case is for ontology developers who want to obsolete a term but need to know how it is used.
 
 For example, if GO wanted to obsolete "apoptosis", GO editors could query for GO:0006915 and see
-which ontologies use it
+which ontologies use it.
+
+For more context see:
+
+ - [obo#1630](https://github.com/OBOFoundry/OBOFoundry.github.io/pull/1630)
 
 Demo server (NOT STABLE):
 
